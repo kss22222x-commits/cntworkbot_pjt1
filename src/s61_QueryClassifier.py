@@ -134,7 +134,7 @@ class QueryClassifier:
         """유형별 검색 전략 반환"""
         strategies = {
             "법조문_조회": {
-                "search_method": "keyword",
+                "search_method": "hybrid",
                 "top_k": 5
             },
             "일반_정보_검색": {

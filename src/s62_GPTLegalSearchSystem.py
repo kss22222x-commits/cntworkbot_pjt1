@@ -3,7 +3,6 @@ enhanced_legal_qa_system.py
 GPT 기반 분류를 사용하는 법령 QA 시스템
 """
 
-from tabnanny import verbose
 from openai import OpenAI
 import json
 from typing import Dict, List
@@ -25,10 +24,6 @@ class EnhancedLegalQASystem:
         top_k = strategy['top_k']
         
         if method == 'hybrid':
-            return self.search_engine.hybrid_search(query, top_k=top_k)
-        elif method == 'keyword':
-            return self.search_engine.keyword_search(query, top_k=top_k)
-        else:
             return self.search_engine.hybrid_search(query, top_k=top_k)
     
     def generate_answer(self, query: str, verbose: bool = True, 
@@ -199,7 +194,7 @@ class EnhancedLegalQASystem:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )
