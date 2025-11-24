@@ -47,24 +47,31 @@ def test_search(engine: LegalSearchEngine, classifier: QueryClassifier):
     """2단계: 검색"""
     print_section("2️⃣ 검색 테스트")
     
-    query = "비계 안전 기준은?"
+    queries = [
+        "제36조가 뭐야?",
+        "비계 안전 기준은?",
+        "우리 현장 3m 비계 괜찮나?",
+        "용도변경 절차 알려줘",
+        "비계 점검 체크리스트 만들어줘",
+        "산업안전보건법과 건축법 차이는?"
+    ]
     
-    classification = classifier.classify(query)
-    strategy = classifier.get_search_strategy(classification['query_type'])
-    
-    print(f"질문: {query}")
-    print(f"유형: {classification['query_type']}")
-    print(f"검색: {strategy['search_method']}\n")
-    
-    if strategy['search_method'] == 'hybrid':
-        results = engine.hybrid_search(query, top_k=strategy['top_k'])
-    elif strategy['search_method'] == 'vector':
-        results = engine.vector_search(query, top_k=strategy['top_k'])
-    
-    print(f"결과: {len(results)}건\n")
-    for i, r in enumerate(results[:3], 1):
-        print(f"[{i}] {r['metadata']['doc_name']} (p.{r['metadata']['page']})")
-        print(f"    {r['content'][:150]}...\n")
+    for query in queries:
+        
+        classification = classifier.classify(query)
+        strategy = classifier.get_search_strategy(classification['query_type'])
+        
+        print(f"질문: {query}")
+        print(f"유형: {classification['query_type']}")
+        print(f"검색: {strategy['search_method']}\n")
+        
+        if strategy['search_method'] == 'hybrid':
+            results = engine.hybrid_search(query, top_k=strategy['top_k'])
+        
+        print(f"결과: {len(results)}건\n")
+        for i, r in enumerate(results[:3], 1):
+            print(f"[{i}] {r['metadata']['doc_name']} (p.{r['metadata']['page']})")
+            print(f"    {r['content'][:150]}...\n")
 
 
 def test_full_qa(qa_system: EnhancedLegalQASystem):

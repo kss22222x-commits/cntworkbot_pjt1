@@ -142,7 +142,7 @@ class EnhancedLegalQASystem:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
@@ -170,7 +170,7 @@ class EnhancedLegalQASystem:
         clean_response = {k: v for k, v in json_response.items() if k != "_meta"}
         
         prompt = f"""
-    다음 구조화된 법률 답변을 일반 사용자가 이해하기 쉬운 자연스러운 대화체로 변환해주세요.
+    다음 구조화된 법률 답변을 일반 사용자가 이해하기 쉬운 자연스러운 대화체로 변환해주세요. 출처도 명확히 밝혀주세요.
 
     구조화된 답변:
     {json.dumps(clean_response, ensure_ascii=False, indent=2)}
@@ -194,7 +194,7 @@ class EnhancedLegalQASystem:
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )
