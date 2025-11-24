@@ -32,6 +32,30 @@ scores = bm25.get_scores(tokenized_query)
 top_doc = bm25.get_top_n(tokenized_query, corpus, n=1)
 # 출력: ['건설 안전 관리 규정을 준수해야 합니다']
 """
+
+"""
+bm25 = BM25Okapi(corpus)
+```
+
+이 한 줄이 하는 일:
+```
+1️⃣ 문서 빈도 (DF) 계산
+   - "비계"가 몇 개 문서에 등장? → 127개
+   - "안전"이 몇 개 문서에 등장? → 892개
+   - "제57조"가 몇 개 문서에 등장? → 3개
+
+2️⃣ 역문서 빈도 (IDF) 계산
+   - IDF("비계") = log(1500/127) = 2.47
+   - IDF("안전") = log(1500/892) = 0.52  ← 흔한 단어라 낮음
+   - IDF("제57조") = log(1500/3) = 6.21  ← 희귀해서 높음
+
+3️⃣ 평균 문서 길이 계산
+   - avgdl = 전체 토큰 수 / 문서 수
+   
+4️⃣ 각 문서의 길이 저장
+   - doc_lens = [350, 420, 380, ...]
+"""
+
 class LegalSearchEngine:
     """법령 특화 하이브리드 검색 엔진"""
     
@@ -98,11 +122,6 @@ class LegalSearchEngine:
     def contains_chapter(self, content: str, chapter: str) -> bool:
         """청크 내용에 특정 장(章)이 포함되어 있는지 확인"""
         pattern = re.escape(chapter) + r'(?:\s|[^\w가-힣]|$)'
-        return bool(re.search(pattern, content))
-    
-    def contains_section(self, content: str, section: str) -> bool:
-        """청크 내용에 특정 절(節)이 포함되어 있는지 확인"""
-        pattern = re.escape(section) + r'(?:\s|[^\w가-힣]|$)'
         return bool(re.search(pattern, content))
     
     def vector_search(self, 
@@ -278,95 +297,6 @@ class LegalSearchEngine:
         
         return hybrid_results[:top_k]
     
-    def search_by_article(self, article: str, top_k: int = 20) -> List[Dict]:
-        """
-        특정 조(條)를 포함하는 모든 청크 검색
-        
-        Args:
-            article: 조 번호 (예: "제36조")
-            top_k: 반환할 결과 수
-        
-        Returns:
-            해당 조를 포함하는 청크들
-        """
-        results = []
-        
-        for idx, item in enumerate(self.metadata):
-            content = item["content"]
-            
-            # 텍스트에서 조 찾기
-            if self.contains_article(content, article):
-                result = {
-                    "rank": len(results) + 1,
-                    "chunk_id": item["chunk_id"],
-                    "content": content,
-                    "metadata": item["metadata"],
-                    "search_type": "article_lookup"
-                }
-                results.append(result)
-                
-                if len(results) >= top_k:
-                    break
-        
-        return results
-    
-    def extract_all_articles(self, content: str) -> List[str]:
-        """
-        청크 내용에서 모든 조(條) 추출
-        
-        Args:
-            content: 청크 내용
-        
-        Returns:
-            조 번호 리스트 (예: ["제36조", "제37조"])
-        """
-        # 제○조 패턴으로 모두 찾기
-        pattern = r'제\d+조(?:의\d+)?'
-        articles = re.findall(pattern, content)
-        
-        # 중복 제거하면서 순서 유지
-        seen = set()
-        unique_articles = []
-        for article in articles:
-            if article not in seen:
-                seen.add(article)
-                unique_articles.append(article)
-        
-        return unique_articles
-    
-    def group_by_article(self, search_results: List[Dict]) -> Dict[str, List[Dict]]:
-        """
-        검색 결과를 조(條)별로 그룹핑
-        
-        주의: 한 청크에 여러 조가 포함될 수 있으므로,
-        해당 청크는 관련된 모든 조 그룹에 포함됨
-        
-        Returns:
-            {"제36조": [result1, result2], "제37조": [...]}
-        """
-        grouped = {}
-        
-        for result in search_results:
-            content = result["content"]
-            
-            # 청크에서 모든 조 추출
-            articles = self.extract_all_articles(content)
-            
-            if not articles:
-                # 조가 없는 경우 "기타"로
-                if "기타" not in grouped:
-                    grouped["기타"] = []
-                grouped["기타"].append(result)
-            else:
-                # 각 조 그룹에 추가
-                for article in articles:
-                    if article not in grouped:
-                        grouped[article] = []
-                    grouped[article].append(result)
-        
-        return grouped
-
-
 def main():
     """테스트 코드"""
     import os

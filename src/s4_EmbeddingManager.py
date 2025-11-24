@@ -3,6 +3,22 @@ s4_EmbeddingManager.py
 임베딩 생성과 FAISS 인덱스 관리
 """
 
+"""
+✅ FAISS 인덱스는 "벡터 창고"
+┌─────────────────────────────────────────────────────────┐
+│ FAISS 인덱스 = 1500개 벡터를 그냥 저장해둔 창고        │
+│                                                         │
+│ 📦 벡터 0:    [0.023, -0.056, 0.089, ...]              │
+│ 📦 벡터 1:    [0.045, 0.012, -0.034, ...]              │
+│ 📦 벡터 2:    [-0.078, 0.091, 0.056, ...]              │
+│ ...                                                     │
+│ 📦 벡터 1499: [0.034, -0.067, 0.045, ...]              │
+│                                                         │
+│ → 미리 정렬되어 있지 않음!                             │
+│ → 검색할 때 거리 계산해서 정렬함                       │
+└─────────────────────────────────────────────────────────┘
+"""
+
 import os
 import json
 import pickle
@@ -346,12 +362,12 @@ def main():
     # 경로 설정 (모두 절대 경로)
     CHUNKS_PATH = os.path.join(project_root, "data", "chunks", "construction_law_chunks.json")
     OUTPUT_DIR = os.path.join(project_root, "data", "vector_store", "construction_law")
-    CACHE_DIR = os.path.join(project_root, "data", "cache")  # ✅ 추가
-    
+    CACHE_DIR = os.path.join(project_root, "data", "cache")
+ 
     print(f"\n프로젝트 루트: {project_root}")
     print(f"입력 파일: {CHUNKS_PATH}")
     print(f"출력 디렉토리: {OUTPUT_DIR}")
-    print(f"캐시 디렉토리: {CACHE_DIR}")  # ✅ 추가
+    print(f"캐시 디렉토리: {CACHE_DIR}")
     
     # 입력 파일 존재 확인
     if not os.path.exists(CHUNKS_PATH):
@@ -375,7 +391,7 @@ def main():
             openai_api_key=openai_api_key,
             institution="construction_law",
             model="text-embedding-3-large",
-            cache_dir=CACHE_DIR  # ✅ 추가: 절대 경로 전달
+            cache_dir=CACHE_DIR
         )
         
         index, metadata = embedding_manager.build_index_from_chunks(
@@ -389,7 +405,7 @@ def main():
         print(f"\n생성된 파일:")
         print(f"  - {os.path.join(OUTPUT_DIR, 'faiss_index.bin')}")
         print(f"  - {os.path.join(OUTPUT_DIR, 'metadata.json')}")
-        print(f"  - {os.path.join(CACHE_DIR, 'embeddings_construction_law.pkl')}")  # ✅ 수정
+        print(f"  - {os.path.join(CACHE_DIR, 'embeddings_construction_law.pkl')}")
         print("="*80 + "\n")
         
     except Exception as e:
