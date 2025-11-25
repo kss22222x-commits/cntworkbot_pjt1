@@ -173,6 +173,55 @@ def format_document_content(answer: dict) -> str:
     return "\n".join(content_lines)
 
 
+def show_sources_expander(full_answer: dict, unique_key: str = ""):
+    """
+    근거 및 출처를 expander로 표시하는 재사용 가능한 함수
+    
+    Args:
+        full_answer: GPT 응답 전체 (메타데이터 포함)
+        unique_key: Streamlit 위젯 키 중복 방지용 고유 문자열
+    """
+    # 1. 메타데이터에서 검색 결과 추출
+    meta = full_answer.get("_meta", {})
+    search_results = meta.get("search_results", [])
+    
+    # 2. 검색 결과가 없으면 아무것도 표시하지 않음
+    if not search_results:
+        return
+    
+    # 3. 접었다 펼 수 있는 expander 생성
+    with st.expander("📚 근거 및 출처 보기"):
+        query_type = meta.get("query_type", "N/A")
+        
+        st.markdown("---")
+        st.markdown(f"##### 🔍 검색된 청크 ({len(search_results)}개)")
+        
+        # 4. 각 검색 결과(청크)를 순회하며 표시
+        for i, result in enumerate(search_results, 1):
+            # 청크 데이터 추출
+            chunk_content = result.get('content', '')
+            metadata = result.get('metadata', {})
+            doc_name = metadata.get('doc_name', '문서명 없음')
+            page = metadata.get('page', '?')
+            
+            # 청크 헤더 표시
+            st.markdown(f"**[청크 {i}] {doc_name}** (페이지 {page})")
+            
+            # 청크 내용을 읽기 전용 텍스트 박스로 표시
+            st.text_area(
+                label=f"청크 내용",
+                value=chunk_content,
+                height=200,
+                key=f"chunk_{unique_key}_{i}",  # 고유 키로 충돌 방지
+                disabled=True,                   # 읽기 전용
+                label_visibility="collapsed"     # 라벨 숨김
+            )
+            
+            # 마지막 청크가 아니면 구분선 표시
+            if i < len(search_results):
+                st.markdown("---")
+
+
 @st.cache_resource
 def load_system():
     """시스템 로드"""
@@ -251,57 +300,23 @@ if "current_document" not in st.session_state:
 if "document_title" not in st.session_state:
     st.session_state.document_title = ""
 
-# 채팅 기록 표시
+
+# ============================================================
+# 📜 채팅 기록 표시 (페이지 로딩 시 실행)
+# ============================================================
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
         
-        # assistant 메시지이고 full_answer가 있을 때
+        # assistant 메시지이고 full_answer가 있을 때만 출처 표시
         if msg["role"] == "assistant" and "full_answer" in msg:
-            full_answer = msg["full_answer"]
-            meta = full_answer.get("_meta", {})
-            search_results = meta.get("search_results", [])
-            
-            # 출처가 있을 때만 expander 표시
-            if search_results:
-                with st.expander("📚 근거 및 출처 보기"):
-                    
-                    # 기본 정보
-                    query_type = meta.get("query_type", "N/A")
-                    
-                    st.markdown("---")
-                    st.markdown(f"##### 🔍 검색된 청크 ({len(search_results)}개)")
-                    
-                    # 각 청크 표시
-                    for i, result in enumerate(search_results, 1):
-                        chunk_content = result.get('content', '')
-                        metadata = result.get('metadata', {})
-                        doc_name = metadata.get('doc_name', '문서명 없음')
-                        page = metadata.get('page', '?')
-                        
-                        # 관련성 점수
-                        relevance = result.get('rrf_score', result.get('score', 0))
-                        
-                        # 청크 정보 헤더
-                        col1, col2 = st.columns([3, 1])
-                        with col1:
-                            st.markdown(f"**[청크 {i}] {doc_name}** (페이지 {page})")
-                        with col2:
-                            st.caption(f"관련성: {relevance:.3f}")
-                        
-                        # 청크 내용 표시
-                        st.text_area(
-                            label=f"청크 내용",
-                            value=chunk_content,
-                            height=200,
-                            key=f"chunk_{id(msg)}_{i}",
-                            disabled=True,
-                            label_visibility="collapsed"
-                        )                        
-                       
-                        if i < len(search_results):
-                            st.markdown("---")
-# 문서 편집기 표시
+            # 🆕 함수 호출로 출처 표시 (과거 메시지)
+            show_sources_expander(msg["full_answer"], unique_key=str(id(msg)))
+
+
+# ============================================================
+# 📝 문서 편집기 표시
+# ============================================================
 if st.session_state.current_document:
     st.markdown("---")
     st.markdown("### 📝 문서 편집기")
@@ -346,78 +361,98 @@ if st.session_state.current_document:
             st.session_state.document_title = ""
             st.rerun()
 
-# 채팅 입력
+
+# ============================================================
+# 💬 새로운 질문 입력 처리
+# ============================================================
 if prompt := st.chat_input("질문을 입력하세요"):
     
+    # 사용자 메시지를 세션에 저장하고 화면에 표시
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
     
+    # AI 답변 생성
     with st.chat_message("assistant"):
         
-        # ===== 진행 상황 표시 =====
+        # ===== 1단계: 진행 상황 표시 =====
         with st.status("🤔 답변 생성 중...", expanded=True) as status:
             
-            # 1단계: 질문 분류
+            # 질문 분류
             st.write("🏷️ 질문 유형 분석 중...")
             classification = classifier.classify(prompt)
             query_type = classification["query_type"]
             
-            # 2단계: 검색 전략
-            st.write("🔍 검색 전략 결정 중...")
-            strategy = classifier.get_search_strategy(query_type)
-            st.write(f"   ✅ {strategy['search_method']} 검색 (top_k={strategy['top_k']})")
-            
-            # 3단계: 문서 검색
+            # 문서 검색
             st.write("📚 관련 문서 검색 중...")
-            search_results = engine.hybrid_search(prompt, top_k=strategy['top_k'])
+            search_results = engine.hybrid_search(prompt, top_k=5)
             st.write(f"   ✅ {len(search_results)}개 문서 발견")
             
-            # 4단계: 답변 생성
+            # GPT 답변 생성
             st.write("✍️ GPT 답변 생성 중...")
             answer = qa_system.generate_answer(prompt, verbose=False, format_for_user=True)
             st.write("   ✅ 답변 생성 완료!")
             
             status.update(label="✅ 답변 완료!", state="complete", expanded=False)
         
-        # ===== 답변 표시 =====
+        # ===== 2단계: 답변 타입 확인 =====
         meta = answer.get("_meta", {})
         query_type = meta.get("query_type", "일반_정보_검색")
         
         st.markdown("---")
         
-        # ===== 문서_생성만 특별 처리 =====
+        # ===== 3단계: 답변 타입에 따라 분기 처리 =====
+        
+        # 📄 문서 생성 타입
         if query_type == "문서_생성":
             제목 = answer.get("제목", "생성된 문서")
             
+            # 성공 메시지 표시
             st.success(f"📄 **{제목}** 문서가 생성되었습니다!")
             
+            # 문서 내용 포맷팅
             document_content = format_document_content(answer)
             
+            # 세션 상태에 문서 저장 (편집기 활성화용)
             st.session_state.current_document = document_content
             st.session_state.document_title = 제목
             
+            # 문서 미리보기
             st.markdown("**📋 문서 미리보기:**")
-            st.code(document_content[:500] + "..." if len(document_content) > 500 else document_content)
+            st.code(document_content[:2000] + "..." if len(document_content) > 2000 else document_content)
             
             st.info("👆 위 '문서 편집기'에서 내용을 수정하고 다운로드할 수 있습니다.")
             
+            # 🆕 근거 출처 표시 (새 답변)
+            show_sources_expander(answer, unique_key="new")
+            
+            # 화면에 표시할 간단한 텍스트
             display_text = f"📄 {제목} 문서가 생성되었습니다. 위 편집기에서 수정 후 다운로드하세요."
+            
+            # 세션에 저장 (전체 답변 포함)
             st.session_state.messages.append({
                 "role": "assistant", 
                 "content": display_text,
-                "full_answer": answer  # 원본 보관
+                "full_answer": answer  # 원본 JSON 보관
             })
             
+            # 페이지 새로고침 (편집기 활성화)
             st.rerun()
         
-        # ===== 나머지: user_friendly_answer 표시 =====
+        # 💬 일반 답변 타입
         else:
+            # 사용자 친화적 답변 추출
             display_text = answer.get("user_friendly_answer", "답변을 생성했습니다.")
+            
+            # 답변 표시
             st.markdown(display_text)
             
+            # 🆕 근거 출처 표시 (새 답변)
+            show_sources_expander(answer, unique_key="new")
+            
+            # 세션에 저장 (전체 답변 포함)
             st.session_state.messages.append({
                 "role": "assistant", 
                 "content": display_text,
-                "full_answer": answer  # 원본 보관
+                "full_answer": answer  # 원본 JSON 보관
             })

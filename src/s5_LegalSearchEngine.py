@@ -318,7 +318,7 @@ def main():
         print(f"\n[{result['rank']}] {result['chunk_id']}")
         print(f"메타데이터:")
         print(json.dumps(result['metadata'], indent=2, ensure_ascii=False))
-        print(f"\n내용 미리보기: {result['content'][:200]}...")
+        print(f"\n내용 미리보기: {result['content'][:2000]}...")
         print("-" * 80)
 
 if __name__ == "__main__":
