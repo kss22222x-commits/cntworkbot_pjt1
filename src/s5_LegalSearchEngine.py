@@ -45,7 +45,7 @@ class LegalSearchEngine:
         
         print("\n🔧 Reranker 로딩 중...")
         self.reranker = CrossEncoder(
-            'BAAI/bge-reranker-v2-m3',
+            'BAAI/bge-reranker-base',
             max_length=512
         )
         print("  ✓ Reranker 로딩 완료")
