@@ -17,6 +17,9 @@ numpy>=1.24.0
 # 키워드 검색
 rank-bm25>=0.2.2
 
+# Reranker 처리
+sentence-transformers>=2.2.0
+
 # 환경변수
 python-dotenv>=1.0.0
 
